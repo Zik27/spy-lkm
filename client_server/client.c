@@ -1,49 +1,37 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <arpa/inet.h>
+#include "daemon.h"
 
-int main(int argc, char *argv[]) {
-    int sockfd = 0, n = 0;
-    char recvBuff[1024];
-    struct sockaddr_in serv_addr;
+int send_message(char *message)
+{
+    int socket_fd;
+    struct sockaddr_in addr;
+    int     data_size;
+    int     bytes_sent;
 
-    if(argc != 2) {
-        printf("\n Usage: %s <ip of server> \n",argv[0]);
-        return 1;
-    }
-    memset(recvBuff, '0',sizeof(recvBuff));
-    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    data_size = strlen(message);
+    if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        printf("\n Error : Could not create socket \n");
-        return 1;
+        printf("Socket creation error\n");
+        exit (-1);
     }
-    memset(&serv_addr, '0', sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(5000);
-    if(inet_pton(AF_INET, argv[1], &serv_addr.sin_addr)<=0)
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = inet_addr(IP_SERVER);
+    if(connect(socket_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        printf("\n inet_pton error occured\n");
-        return 1;
+        printf("Connect failed\n");
+        exit(-1);
     }
-    if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    while (data_size > 0)
     {
-       printf("\n Error : Connect Failed \n");
-       return 1;
+        bytes_sent = send(socket_fd, message, data_size, 0);
+        if (bytes_sent == SO_ERROR)
+        {
+            printf("ERROR SEND\n");
+            return -1;
+        }
+        message += bytes_sent;
+        data_size -= bytes_sent;
     }
-    while ((n = read(sockfd, recvBuff, sizeof(recvBuff)-1)) > 0)
-    {
-        recvBuff[n] = 0;
-        if(fputs(recvBuff, stdout) == EOF)
-            printf("\n Error : Fputs error\n");
-    }
-    if (n < 0)
-        printf("\n Read error \n");
-    return 0;
+    close(socket_fd);
+    return (0);
 }
